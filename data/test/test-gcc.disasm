@@ -1,0 +1,184 @@
+test-gcc.text:     file format binary
+
+
+Disassembly of section .data:
+
+0000000000000000 <.data>:
+   0:	00 00 a0 c3 	br	gp,0x4
+   4:	02 00 bd 27 	ldah	gp,2(gp)
+   8:	4c 9c bd 23 	lda	gp,-25524(gp)
+   c:	3e 15 c2 43 	subq	sp,0x10,sp
+  10:	0f 14 e0 47 	mov	0,fp
+  14:	18 80 1d a6 	ldq	a0,-32744(gp)
+  18:	10 00 3e a2 	ldl	a1,16(sp)
+  1c:	18 00 5e 22 	lda	a2,24(sp)
+  20:	10 80 7d a6 	ldq	a3,-32752(gp)
+  24:	00 80 9d a6 	ldq	a4,-32768(gp)
+  28:	15 04 e0 47 	mov	v0,a5
+  2c:	00 00 de b7 	stq	sp,0(sp)
+  30:	08 80 7d a7 	ldq	t12,-32760(gp)
+  34:	00 40 5b 6b 	jsr	ra,(t12),0x38
+  38:	00 00 00 00 	halt
+  3c:	00 00 fe 2f 	unop	
+  40:	02 00 bb 27 	ldah	gp,2(t12)
+  44:	10 9c bd 23 	lda	gp,-25584(gp)
+  48:	ff ff 3d 24 	ldah	t0,-1(gp)
+  4c:	ff ff 1d 26 	ldah	a0,-1(gp)
+  50:	f0 7f 21 20 	lda	t0,32752(t0)
+  54:	f0 ff de 23 	lda	sp,-16(sp)
+  58:	f0 7f 10 22 	lda	a0,32752(a0)
+  5c:	07 00 21 20 	lda	t0,7(t0)
+  60:	00 00 5e b7 	stq	ra,0(sp)
+  64:	21 05 30 40 	subq	t0,a0,t0
+  68:	a1 d7 21 40 	cmpule	t0,0xe,t0
+  6c:	05 00 20 f4 	bne	t0,0x84
+  70:	00 00 7f 23 	lda	t12,0
+  74:	03 00 60 e7 	beq	t12,0x84
+  78:	00 40 5b 6b 	jsr	ra,(t12),0x7c
+  7c:	02 00 ba 27 	ldah	gp,2(ra)
+  80:	d4 9b bd 23 	lda	gp,-25644(gp)
+  84:	00 00 5e a7 	ldq	ra,0(sp)
+  88:	10 00 de 23 	lda	sp,16(sp)
+  8c:	01 80 fa 6b 	ret
+  90:	02 00 bb 27 	ldah	gp,2(t12)
+  94:	c0 9b bd 23 	lda	gp,-25664(gp)
+  98:	ff ff 1d 26 	ldah	a0,-1(gp)
+  9c:	ff ff 3d 26 	ldah	a1,-1(gp)
+  a0:	f0 7f 10 22 	lda	a0,32752(a0)
+  a4:	f0 7f 31 22 	lda	a1,32752(a1)
+  a8:	31 05 30 42 	subq	a1,a0,a1
+  ac:	91 77 20 4a 	sra	a1,0x3,a1
+  b0:	f0 ff de 23 	lda	sp,-16(sp)
+  b4:	81 f6 27 4a 	srl	a1,0x3f,t0
+  b8:	00 00 5e b7 	stq	ra,0(sp)
+  bc:	11 04 31 40 	addq	t0,a1,a1
+  c0:	91 37 20 4a 	sra	a1,0x1,a1
+  c4:	05 00 20 e6 	beq	a1,0xdc
+  c8:	00 00 7f 23 	lda	t12,0
+  cc:	03 00 60 e7 	beq	t12,0xdc
+  d0:	00 40 5b 6b 	jsr	ra,(t12),0xd4
+  d4:	02 00 ba 27 	ldah	gp,2(ra)
+  d8:	7c 9b bd 23 	lda	gp,-25732(gp)
+  dc:	00 00 5e a7 	ldq	ra,0(sp)
+  e0:	10 00 de 23 	lda	sp,16(sp)
+  e4:	01 80 fa 6b 	ret
+  e8:	1f 04 ff 47 	nop	
+  ec:	00 00 fe 2f 	unop	
+  f0:	02 00 bb 27 	ldah	gp,2(t12)
+  f4:	60 9b bd 23 	lda	gp,-25760(gp)
+  f8:	e0 ff de 23 	lda	sp,-32(sp)
+  fc:	08 00 3e b5 	stq	s0,8(sp)
+ 100:	00 00 3d 25 	ldah	s0,0(gp)
+ 104:	10 00 5e b5 	stq	s1,16(sp)
+ 108:	30 80 49 21 	lda	s1,-32720(s0)
+ 10c:	30 80 29 2c 	ldq_u	t0,-32720(s0)
+ 110:	00 00 5e b7 	stq	ra,0(sp)
+ 114:	c1 00 2a 48 	extbl	t0,s1,t0
+ 118:	0a 00 20 f4 	bne	t0,0x144
+ 11c:	00 00 fe 2f 	unop	
+ 120:	c9 ff 5f d3 	bsr	ra,0x48
+ 124:	00 00 fe 2f 	unop	
+ 128:	00 00 fe 2f 	unop	
+ 12c:	01 00 3f 20 	lda	t0,1
+ 130:	30 80 49 2c 	ldq_u	t1,-32720(s0)
+ 134:	61 01 2a 48 	insbl	t0,s1,t0
+ 138:	42 00 4a 48 	mskbl	t1,s1,t1
+ 13c:	01 04 22 44 	or	t0,t1,t0
+ 140:	30 80 29 3c 	stq_u	t0,-32720(s0)
+ 144:	00 00 5e a7 	ldq	ra,0(sp)
+ 148:	08 00 3e a5 	ldq	s0,8(sp)
+ 14c:	10 00 5e a5 	ldq	s1,16(sp)
+ 150:	20 00 de 23 	lda	sp,32(sp)
+ 154:	01 80 fa 6b 	ret
+ 158:	1f 04 ff 47 	nop	
+ 15c:	00 00 fe 2f 	unop	
+ 160:	02 00 bb 27 	ldah	gp,2(t12)
+ 164:	f0 9a bd 23 	lda	gp,-25872(gp)
+ 168:	ff ff 1d 26 	ldah	a0,-1(gp)
+ 16c:	f0 ff de 23 	lda	sp,-16(sp)
+ 170:	38 7e 10 22 	lda	a0,32312(a0)
+ 174:	00 00 30 a4 	ldq	t0,0(a0)
+ 178:	00 00 5e b7 	stq	ra,0(sp)
+ 17c:	04 00 20 f4 	bne	t0,0x190
+ 180:	00 00 5e a7 	ldq	ra,0(sp)
+ 184:	10 00 de 23 	lda	sp,16(sp)
+ 188:	00 00 fe 2f 	unop	
+ 18c:	c2 ff ff c3 	br	0x98
+ 190:	00 00 7f 23 	lda	t12,0
+ 194:	fa ff 7f e7 	beq	t12,0x180
+ 198:	00 40 5b 6b 	jsr	ra,(t12),0x19c
+ 19c:	02 00 ba 27 	ldah	gp,2(ra)
+ 1a0:	b4 9a bd 23 	lda	gp,-25932(gp)
+ 1a4:	f6 ff ff c3 	br	0x180
+ 1a8:	1f 04 ff 47 	nop	
+ 1ac:	00 00 fe 2f 	unop	
+ 1b0:	e0 ff de 23 	lda	sp,-32(sp)
+ 1b4:	00 00 5e b7 	stq	ra,0(sp)
+ 1b8:	08 00 fe b5 	stq	fp,8(sp)
+ 1bc:	0f 04 fe 47 	mov	sp,fp
+ 1c0:	10 00 2f a0 	ldl	t0,16(fp)
+ 1c4:	02 30 20 40 	addl	t0,0x1,t1
+ 1c8:	10 00 4f b0 	stl	t1,16(fp)
+ 1cc:	14 00 2f b0 	stl	t0,20(fp)
+ 1d0:	01 04 ff 47 	clr	t0
+ 1d4:	00 04 e1 47 	mov	t0,v0
+ 1d8:	1e 04 ef 47 	mov	fp,sp
+ 1dc:	00 00 5e a7 	ldq	ra,0(sp)
+ 1e0:	08 00 fe a5 	ldq	fp,8(sp)
+ 1e4:	20 00 de 23 	lda	sp,32(sp)
+ 1e8:	01 80 fa 6b 	ret
+ 1ec:	00 00 fe 2f 	unop	
+ 1f0:	02 00 bb 27 	ldah	gp,2(t12)
+ 1f4:	60 9a bd 23 	lda	gp,-26016(gp)
+ 1f8:	c0 ff de 23 	lda	sp,-64(sp)
+ 1fc:	00 00 fe 2f 	unop	
+ 200:	08 00 3e b5 	stq	s0,8(sp)
+ 204:	10 00 5e b5 	stq	s1,16(sp)
+ 208:	0a 04 ff 47 	clr	s1
+ 20c:	18 00 7e b5 	stq	s2,24(sp)
+ 210:	0b 04 f2 47 	mov	a2,s2
+ 214:	20 00 9e b5 	stq	s3,32(sp)
+ 218:	0c 04 f1 47 	mov	a1,s3
+ 21c:	28 00 be b5 	stq	s4,40(sp)
+ 220:	0d 04 f0 47 	mov	a0,s4
+ 224:	30 00 de b5 	stq	s5,48(sp)
+ 228:	00 00 5e b7 	stq	ra,0(sp)
+ 22c:	5c ff 5f d3 	bsr	ra,0xffffffffffffffa0
+ 230:	00 00 fe 2f 	unop	
+ 234:	00 00 fe 2f 	unop	
+ 238:	ff ff 3d 25 	ldah	s0,-1(gp)
+ 23c:	ff ff dd 25 	ldah	s5,-1(gp)
+ 240:	28 7e 29 21 	lda	s0,32296(s0)
+ 244:	30 7e ce 21 	lda	s5,32304(s5)
+ 248:	2e 05 c9 41 	subq	s5,s0,s5
+ 24c:	8e 77 c0 49 	sra	s5,0x3,s5
+ 250:	0e 00 c0 e5 	beq	s5,0x28c
+ 254:	00 00 fe 2f 	unop	
+ 258:	1f 04 ff 47 	nop	
+ 25c:	00 00 fe 2f 	unop	
+ 260:	12 04 eb 47 	mov	s2,a2
+ 264:	00 00 69 a7 	ldq	t12,0(s0)
+ 268:	11 04 ec 47 	mov	s3,a1
+ 26c:	10 04 ed 47 	mov	s4,a0
+ 270:	01 00 4a 21 	lda	s1,1(s1)
+ 274:	00 40 5b 6b 	jsr	ra,(t12),0x278
+ 278:	02 00 ba 27 	ldah	gp,2(ra)
+ 27c:	d8 99 bd 23 	lda	gp,-26152(gp)
+ 280:	a1 05 ca 41 	cmpeq	s5,s1,t0
+ 284:	08 00 29 21 	lda	s0,8(s0)
+ 288:	f5 ff 3f e4 	beq	t0,0x260
+ 28c:	00 00 5e a7 	ldq	ra,0(sp)
+ 290:	08 00 3e a5 	ldq	s0,8(sp)
+ 294:	10 00 5e a5 	ldq	s1,16(sp)
+ 298:	18 00 7e a5 	ldq	s2,24(sp)
+ 29c:	20 00 9e a5 	ldq	s3,32(sp)
+ 2a0:	28 00 be a5 	ldq	s4,40(sp)
+ 2a4:	30 00 de a5 	ldq	s5,48(sp)
+ 2a8:	40 00 de 23 	lda	sp,64(sp)
+ 2ac:	01 80 fa 6b 	ret
+ 2b0:	01 80 fa 6b 	ret
+ 2b4:	00 00 fe 2f 	unop	
+ 2b8:	1f 04 ff 47 	nop	
+ 2bc:	00 00 fe 2f 	unop	
+Alpha ~/shellcode # 
+

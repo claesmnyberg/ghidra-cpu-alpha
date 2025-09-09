@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<language_definitions>
+  <language processor="Alpha"
+            endian="little"
+            size="64"
+            variant="default"
+            version="1.0"
+            slafile="alpha_linux.sla"
+            processorspec="alpha.pspec"
+            id="Alpha:LE:64:gcc">
+    <description>DEC Alpha processor 64-bit little-endian</description>
+    <compiler name="linux-gcc" spec="alpha_linux_gcc.cspec" id="linux-gcc"/>
+  </language>
+  <language processor="Alpha"
+            endian="little"
+            size="64"
+            variant="default"
+            version="1.0"
+            slafile="alpha_openvms.sla"
+            processorspec="alpha.pspec"
+            id="Alpha:LE:64:dec">
+    <description>DEC Alpha processor 64-bit little-endian</description>
+    <compiler name="openvms-dec" spec="alpha_openvms_dec.cspec" id="openvms-dec"/>
+  </language>
+</language_definitions>

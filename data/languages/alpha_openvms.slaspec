@@ -1,0 +1,3 @@
+@define OS "OpenVMS"
+@include "alpha.sinc"
+

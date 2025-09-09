@@ -1,0 +1,1182 @@
+
+#
+# SLA specification file for DEC Alpha
+# Author: Claes M. Nyberg <cmn@signedness.org> 
+# Date: Fall 2019
+# Version: 1.1
+#
+
+@define SIZE "8"
+@define STACKPTR "sp"
+
+#@define OS "Linux"
+#@define OS "OpenVMS"
+#@define OS "Tru64"
+
+# TODO: endian can be either little or big
+define endian=little;
+define alignment=4;
+
+define space ram type=ram_space size=$(SIZE) default;
+define space register type=register_space size=8;
+
+
+@if ((OS=="Linux") || (OS=="Tru64"))
+# General purpose registers
+define register offset=0 size=8 
+	[ 	v0							# Return value 
+		t0 t1 t2 t3 t4 t5 t6 t7 	# Temporary registers
+		s0 s1 s2 s3 s4 s5 			# Saved registers
+		fp 							# Frame pointer (if used) or seventh saved register
+		a0 a1 a2 a3 a4 a5 			# First six arguments to functions
+		t8 t9 t10 t11				# Temporary registers
+		ra							# Return address, preserved across procedure calls
+		t12							# Procedure value (loader specific)
+		at							# Reserved for assembler
+		gp							# Global pointer
+		sp							# Stack pointer
+		rz 						# Hardwired zero value
+	];
+
+@elif (OS=="OpenVMS")
+# General purpose registers
+define register offset=0 size=8 
+	[ r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 r13 r14 r15 r16
+	  r17 r18 r19 r20 r21 r22 r23 r24 ai ra pv r28 fp sp rz ];
+@else
+# General purpose registers
+define register offset=0 size=8
+	[ r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 r13 r14 r15 r16
+	  r17 r18 r19 r20 r21 r22 r23 r24 r25 r26 r27 r28 r29 r30 rz ];
+@endif
+
+
+# Floating point registers
+define register offset=0x100 size=8
+	[ f0 f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16
+	  f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 fz ];
+
+# Program counter
+define register offset=0x208 size=8 [ pc ];
+
+# Two lower bits indicate which ring that is active
+# ToDo: For some reason this results in failure loading the resulting sla file
+#define bitrange ring=pc[0,2];
+
+# Control registers 
+define register offset=0x210 size=8 
+	[ 	lr0 	# Lock register 0
+		lr1 	# Lock register 1
+		fpcr 	# FP Control Register
+	];
+
+#
+# There are six different instruction formats
+# Source: https://en.wikipedia.org/wiki/DEC_Alpha
+#
+#    3                   2                   1                   0
+#  1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0 9 8 7 6 5 4 3 2 1 0
+# +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+# |  Opcode   |   r1    |   r2    |Unuse|0|   Function  |    r3   | Integer operate (Opr)
+# +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+# |  Opcode   |   r1    |   Literal     |1|   Function  |    r3   | Integer operate, literal (Opr)
+# +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+# |  Opcode   |   f1    |   f2    |       Function      |    f3   | Floating-point operate (F-p)
+# +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+# |  Opcode   |   r1    |   r2    |        Displacement           | Memory format (Mem)
+# +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+# |  Opcode   |   r1    |             Displacement                | Branch format (Bra)
+# +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+# |  Opcode   |                   Function                        | CALL_PAL Format (Pcd)
+# +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#
+define token instr(32)
+    opcode = (26, 31)		# Major opcode
+    reg1 = (21, 25)			# First register
+    reg2 = (16, 20)			# Second register
+    rf1 = (21, 25)			# First (floating point) register
+    rf2 = (16, 20)			# Second (floating point) register
+
+    islit = (12, 12)		# literal flag
+	literal = (13, 20)		# Byte literal
+    opr_func = (5, 11)		# Integer operate function
+	fp_func = (5, 15)		# Floating point function
+
+	mem_displ = (0, 15)			# Memory displacement
+	simm16 = (0, 15) dec signed	# Memory displacement (signed 16bit)
+	imm16 = (0, 15) dec			# Memory displacement (signed 16bit)
+	mem_h = (14, 15)        	# High order two bits of displacement field
+	mem_l = (0, 13) dec signed  # Lower 14 bits of memory displacement field
+	mem_hint = (0, 13)          # Lower 14 bits of memory displacement field
+	bra_displ = (0, 20) dec signed    	# Branch displacement
+
+	pcd_func = (0, 25)      # CALL_PAL function
+    reg3 = (0, 4)				# Third register
+    rf3 = (0, 4)			# Third (floating point) register
+;
+
+@if ((OS=="Linux") || (OS=="Tru64"))
+attach variables [ reg1 reg2 reg3 ] 
+	[ v0 t0 t1 t2 t3 t4 t5 t6 t7 s0 s1 s2 s3 s4 s5 
+		fp a0 a1 a2 a3 a4 a5 t8 t9 t10 t11 ra t12 at gp sp rz ];
+
+@elif (OS=="OpenVMS")
+attach variables [ reg1 reg2 reg3 ] 
+	[ r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 r13 r14 r15 r16
+	  r17 r18 r19 r20 r21 r22 r23 r24 ai ra pv r28 fp sp rz ];
+
+@else
+attach variables [ reg1 reg2 reg3 ] 
+	[ r0 r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 r12 r13 r14 r15 r16
+	  r17 r18 r19 r20 r21 r22 r23 r24 r25 r26 r27 r28 r29 r30 rz ];
+@endif
+
+attach variables [rf1 rf2 rf3] 
+	[ f0 f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 
+		f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 fz ];
+
+#
+# Instruction set
+#
+#
+# F-p 	- Floating Point format
+# Opr	- Integer (Literal) Operate format
+# Bra	- Branch Format
+# Mbr	- Memory branch format
+# Mem	- Memory format
+# Pcd	- Call Pall Format
+#
+# Instruction Format and Opcode Notation
+#
+# Instruction        Format    Opcode
+# Format             Symbol    Notation  Meaning
+# ----------------------------------------------------------------------------
+# Branch             Bra       oo        oo is the 6-bit opcode field 
+#
+# Floating-point     F-p       oo.fff    fff is the 11 bit function field
+#
+# Memory             Mem       oo        
+#
+# Memory func/code   Mfc       oo.ffff   ffff is the 16-bit function code 
+#                                        in the displacement field
+# Memory branch      Mbr       oo.h      h is the high-order two bits of 
+#                                        the displacement field
+# Operate            Opr       oo.ff     ff is the 7-bit function code field
+#
+# PALcode            Pcd       oo        PAL CODE instruction is specified in 
+#                                        the function field
+# -----------------------------------------------------------------------------
+
+
+
+# addf	(F-p, opcode 15.080)
+:addf rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x080 & rf3 {
+	rf3 = rf1 + rf2;
+}
+
+# addg (F-p, opcode 15.0A0)
+:addg rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x0a0 & rf3 {
+	rf3 = rf1 + rf2;
+}
+
+# addl (Opr, 10.00)
+:addl reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x00 & reg3 {
+	reg3 = sext(reg1[0,31] + reg2[0,31]);
+}
+:addl reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x00 & reg3 {
+	reg3 = sext(reg1[0,31] + literal);
+}
+
+# addl/v (Opr, 10.40)
+:addl_v reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x40 & reg3 {
+}
+:addl_v reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x40 & reg3 {
+}
+
+# addq (Opr, 10.20)
+:addq reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x20 & reg3 {
+	reg3 = reg1 + reg2;
+}
+:addq reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x20 & reg3 {
+	reg3 = reg1 + literal;
+}
+
+# addq/v (Opr, 10.60)
+:addq_v reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x60 & reg3 {
+}
+:addq_v reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x60 & reg3 {
+}
+
+# adds (F-p, 16.080)
+:adds rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x080 & rf3 {
+    rf3 = rf1 + rf2;
+}
+
+# addt (F-p, 16.0A0)
+:addt rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x0a0 & rf3 {
+    rf3 = rf1 + rf2;
+}
+
+# and (Opr, 11.00)
+:and reg1, reg2, reg3 is opcode=0x11 & reg1 & reg2 & islit=0b0 & opr_func=0x00 & reg3 {
+	reg3 = reg1 & reg2;
+}
+:and reg1, literal, reg3 is opcode=0x11 & reg1 & literal & islit=0b1 & opr_func=0x00 & reg3 {
+	reg3 = reg1 & literal;
+}
+
+# Destination address for branching
+destb: reloc is bra_displ [ reloc = inst_next + 4*bra_displ; ] {
+	export *[ram]:8 reloc;
+}
+
+# beq (Bra, 39)
+:beq reg1, destb is opcode=0x39 & reg1 & destb {
+	if (reg1 == 0) 
+		goto destb;
+}
+
+# bge (Bra, 3E)
+:bge reg1, destb is opcode=0x3e & reg1 & destb {
+	if (reg1 s>= 0) 
+		goto destb;
+}
+
+# bgt (Bra, 3F)
+:bgt reg1, destb is opcode=0x3f & reg1 & destb {
+	if (reg1 s> 0) 
+		goto destb;
+}
+
+# bic (Opr, 11.0) # WTF: Same function as "and" instruction above
+
+
+
+# bis (Opr, 11.20)
+:bis reg1, reg2, reg3 is opcode=0x11 & reg1 & reg2 & islit=0b0 & opr_func=0x20 & reg3 {
+	reg3 = reg1 | reg2;
+}
+:bis reg1, literal, reg3 is opcode=0x11 & reg1 & literal & islit=0b1 & opr_func=0x20 & reg3 {
+	reg3 = reg1 | literal;
+}
+
+# mov (bis rz, reg2, reg3)
+:mov reg2, reg3 is opcode=0x11 & reg1=31 & reg2 & islit=0b0 & opr_func=0x20 & reg3 {
+	reg3 = reg2;
+}
+
+# mov (bis rz, 0x??, reg3)
+:mov literal, reg3 is opcode=0x11 & reg1=31 & literal & islit=0b1 & opr_func=0x20 & reg3 {
+    reg3 = literal;
+}
+
+# clr (bis rz, rz, reg3)
+:clr reg3 is opcode=0x11 & reg1=31 & reg2=31 & islit=0b0 & opr_func=0x20 & reg3 {
+	reg3 = 0;
+}
+
+# mov (bis rz, 0x??, reg3)
+:clr reg3 is opcode=0x11 & reg1=31 & literal=0 & islit=0b1 & opr_func=0x20 & reg3 {
+    reg3 = 0;
+}
+
+# nop (bis rz, rz, rz)
+:nop is opcode=0x11 & islit=0b0 & reg1=31 & reg2=31 & opr_func=0x20 & reg3=31 {
+}
+
+# blbc (Bra, 38)
+:blbc reg1, destb is opcode=0x38 & reg1 & destb { 
+	if ( (reg1 & 0b1) == 0) 
+		goto destb;
+}
+
+# blbs (Bra, 3C)
+:blbs reg1, destb is opcode=0x3c & reg1 & destb {
+	if ( (reg1 & 0b1) == 1) 
+		goto destb;
+}
+
+# ble (Bra, 3B)
+:ble reg1, destb is opcode=0x3b & reg1 & destb {
+	if (reg1 s<= 0) 
+		goto destb;
+}
+
+# blt (Bra, 3A)
+:blt reg1, destb is opcode=0x3a & reg1 & destb {
+	if (reg1 s< 0) 
+		goto destb;
+}
+
+# bne (Bra, 3D)
+:bne reg1, destb is opcode=0x3d & reg1 & destb {
+	if (reg1 != 0) 
+		goto destb;
+}
+
+# br (Bra, 30)
+:br reg1, destb is opcode=0x30 & reg1 & destb {
+	reg1 = pc;
+	goto destb;
+}
+:br destb is opcode=0x30 & reg1=31 & destb {
+	goto destb;
+}
+
+# bsr (Bra, 34)
+:bsr reg1, destb is opcode=0x34 & reg1 & destb {
+	reg1 = pc;
+	*:8 sp = inst_next;
+	sp = sp-8;
+	call destb;
+}
+
+# call_pal (Pcd, 00) 
+:halt is opcode=0x00 & pcd_func = 0x000 {
+}
+
+# call_pal (Pcd, 00) 
+:draina is opcode=0x00 & pcd_func = 0x002 {
+}
+
+# call_pal (Pcd, 00) 
+:bpt is opcode=0x00 & pcd_func = 0x080 {
+}
+
+# call_pal (Pcd, 00) 
+:bugchk is opcode=0x00 & pcd_func = 0x081 {
+}
+
+# call_pal (Pcd, 00) 
+:imb is opcode=0x00 & pcd_func = 0x086 {
+}
+
+# call_pal (Pcd, 00) 
+:callsys is opcode=0x00 & pcd_func = 0x083 {
+}
+
+# call_pal (Pcd, 00) 
+:gentrap is opcode=0x00 & pcd_func = 0x0aa {
+}
+
+# TODO: Figure out function values
+@ifdef OS_OPENVMS
+:amovrm is opcode=0x00 & pcd_func = 0x0?? {}
+:amovrr is opcode=0x00 & pcd_func = 0x0?? {}
+:bpt is opcode=0x00 & pcd_func = 0x0?? {}
+:bugchk is opcode=0x00 & pcd_func = 0x0?? {}
+:cflush is opcode=0x00 & pcd_func = 0x0?? {}
+:chme is opcode=0x00 & pcd_func = 0x0?? {}
+:chmk is opcode=0x00 & pcd_func = 0x0?? {}
+:chms is opcode=0x00 & pcd_func = 0x0?? {}
+:chmu is opcode=0x00 & pcd_func = 0x0?? {}
+:clrfen is opcode=0x00 & pcd_func = 0x0?? {}
+:cserve is opcode=0x00 & pcd_func = 0x0?? {}
+:draina is opcode=0x00 & pcd_func = 0x0?? {}
+:gentrap is opcode=0x00 & pcd_func = 0x0?? {}
+:halt is opcode=0x00 & pcd_func = 0x0?? {}
+:imb is opcode=0x00 & pcd_func = 0x0?? {}
+:insqxxx is opcode=0x00 & pcd_func = 0x0?? {}
+:ldpq is opcode=0x00 & pcd_func = 0x0?? {}
+:mfpr is opcode=0x00 & pcd_func = 0x0?? {}
+:mtpr is opcode=0x00 & pcd_func = 0x0?? {}
+:prober is opcode=0x00 & pcd_func = 0x0?? {}
+:probew is opcode=0x00 & pcd_func = 0x0?? {}
+:rd_ps is opcode=0x00 & pcd_func = 0x0?? {}
+:read_unq is opcode=0x00 & pcd_func = 0x0?? {}
+:rei is opcode=0x00 & pcd_func = 0x0?? {}
+:remqxxx is opcode=0x00 & pcd_func = 0x0?? {}
+:rscc is opcode=0x00 & pcd_func = 0x0?? {}
+:stqp is opcode=0x00 & pcd_func = 0x0?? {}
+:swasten is opcode=0x00 & pcd_func = 0x0?? {}
+:swpctx is opcode=0x00 & pcd_func = 0x0?? {}
+:swppal is opcode=0x00 & pcd_func = 0x0?? {}
+:write_unq is opcode=0x00 & pcd_func = 0x0?? {}
+:wr_ps_sw is opcode=0x00 & pcd_func = 0x0?? {}
+:wtint is opcode=0x00 & pcd_func = 0x0?? {}
+@endif
+
+# cmoveq (Opr, 11.24)
+:cmoveq reg1, reg2, reg3 is opcode=0x11 & reg1 & reg2 & islit=0b0 & opr_func=0x24 & reg3 {
+	if !(reg1 == 0) goto <movend>;
+		reg3 = reg2;
+	<movend>
+}
+:cmoveq reg1, literal, reg3 is opcode=0x11 & reg1 & literal & islit=0b1 & opr_func=0x24 & reg3 {
+	if !(reg1 == 0) goto <movend>;
+		reg3 = literal;
+	<movend>
+}
+
+# cmovge (Opr, 11.46)
+:cmovge reg1, reg2, reg3 is opcode=0x11 & reg1 & reg2 & islit=0b0 & opr_func=0x46 & reg3 {
+    if !(reg1 s>= 0) goto <movend>;
+        reg3 = reg2;
+	<movend>
+}
+:cmovge reg1, literal, reg3 is opcode=0x11 & reg1 & literal & islit=0b1 & opr_func=0x46 & reg3 {
+    if !(reg1 s>= 0) goto <movend>;
+        reg3 = literal;
+	<movend>
+}
+
+# cmovgt (Opr, 11.66)
+:cmovgt reg1, reg2, reg3 is opcode=0x11 & reg1 & reg2 & islit=0b0 & opr_func=0x66 & reg3 {
+    if !(reg1 s> 0) goto <movend>;
+        reg3 = reg2;
+    <movend>
+}
+:cmovgt reg1, literal, reg3 is opcode=0x11 & reg1 & literal & islit=0b1 & opr_func=0x66 & reg3 {
+    if !(reg1 s> 0) goto <movend>;
+        reg3 = literal;
+    <movend>
+}
+
+# cmovlbc (Opr, 11.16)
+:cmovlbc reg1, reg2, reg3 is opcode=0x11 & reg1 & reg2 & islit=0b0 & opr_func=0x16 & reg3 {
+    if !(reg1[0,1] == 0b0) goto <movend>;
+        reg3 = reg2;
+    <movend>
+}
+:cmovlbc reg1, literal, reg3 is opcode=0x11 & reg1 & literal & islit=0b1 & opr_func=0x16 & reg3 {
+    if !(reg1[0,1] == 0b0) goto <movend>;
+        reg3 = literal;
+    <movend>
+}
+
+# cmovlbs (Opr, 11.14)
+:cmovlbs reg1, reg2, reg3 is opcode=0x11 & reg1 & reg2 & islit=0b0 & opr_func=0x14 & reg3 {
+    if !(reg1[0,1] == 0b1) goto <movend>;
+        reg3 = reg2;
+    <movend>
+}
+:cmovlbs reg1, literal, reg3 is opcode=0x11 & reg1 & literal & islit=0b1 & opr_func=0x14 & reg3 {
+    if !(reg1[0,1] == 0b1) goto <movend>;
+        reg3 = literal;
+    <movend>
+}
+
+# cmovle (Opr, 11.64)
+:cmovle reg1, reg2, reg3 is opcode=0x11 & reg1 & reg2 & islit=0b0 & opr_func=0x64 & reg3 {
+    if !(reg1 s<= 0) goto <movend>;
+        reg3 = reg2;
+    <movend>
+}
+:cmovle reg1, literal, reg3 is opcode=0x11 & reg1 & literal & islit=0b1 & opr_func=0x64 & reg3 {
+    if !(reg1 s<= 0) goto <movend>;
+        reg3 = literal;
+    <movend>
+}
+
+# cmovlt (Opr, 11.44)
+:cmovlt reg1, reg2, reg3 is opcode=0x11 & reg1 & reg2 & islit=0b0 & opr_func=0x44 & reg3 {
+    if !(reg1 s< 0) goto <movend>;
+        reg3 = reg2;
+    <movend>
+}
+:cmovlt reg1, literal, reg3 is opcode=0x11 & reg1 & literal & islit=0b1 & opr_func=0x44 & reg3 {
+    if !(reg1 s< 0) goto <movend>;
+        reg3 = literal;
+    <movend>
+}
+
+# cmovne (Opr, 11.26)
+:cmovne reg1, reg2, reg3 is opcode=0x11 & reg1 & reg2 & islit=0b0 & opr_func=0x26 & reg3 {
+    if !(reg1 != 0) goto <movend>;
+        reg3 = reg2;
+    <movend>
+}
+:cmovne reg1, literal, reg3 is opcode=0x11 & reg1 & literal & islit=0b1 & opr_func=0x26 & reg3 {
+    if !(reg1 != 0) goto <movend>;
+        reg3 = literal;
+    <movend>
+}
+
+# cmpge (Opr, 10.0F)
+:cmpge reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x0f & reg3 {
+	reg3 = 0;
+    if !(reg1 s>= reg2) goto <cmpend>;
+        reg3 = 1;
+    <cmpend>
+}
+:cmpge reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x0f & reg3 {
+	reg3 = 0;
+    if !(reg1 s>= literal) goto <cmpend>;
+        reg3 = 1;
+    <cmpend>
+}
+
+# cmpeq (Opr, 10.2D)
+:cmpeq reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x2d & reg3 {
+    reg3 = 0;
+    if !(reg1 == reg2) goto <cmpend>;
+        reg3 = 1;
+    <cmpend>
+}
+:cmpeq reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x2d & reg3 {
+    reg3 = 0;
+    if !(reg1 == literal) goto <cmpend>;
+        reg3 = 1;
+    <cmpend>
+}
+
+# cmpgeq (F-p, 15.0A5)
+:cmpgeq rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x0a5 & rf3 {
+	rf3 = 0;
+	if !(rf1 == rf2)  goto <cmpend>;
+    	rf3 = 0x4000000000000000;
+	<cmpend>
+}
+
+# cmpgle (F-p, 15.0A7)
+:cmpgle rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x0a7 & rf3 {
+    rf3 = 0;
+    if !(rf1 s<= rf2)  goto <cmpend>;
+    	rf3 = 0x4000000000000000;
+    <cmpend>
+}
+
+# cmpglt (F-p, 15.0A6)
+:cmpglt rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x0a6 & rf3 {
+    rf3 = 0;
+    if !(rf1 s< rf2)  goto <cmpend>;
+    	rf3 = 0x4000000000000000;
+    <cmpend>
+}
+
+# cmple (Opr, 10.6D)
+:cmple reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x6d & reg3 {
+    reg3 = 0;
+    if !(reg1 s<= reg2) goto <movend>;
+        reg3 = 1;
+    <movend>
+}
+:cmple reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x6d & reg3 {
+    reg3 = 0;
+    if !(reg1 s<= literal) goto <movend>;
+        reg3 = 1;
+    <movend>
+}
+
+# cmplt (Opr, 10.4D)
+:cmplt reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x4d & reg3 {
+    reg3 = 0;
+    if !(reg1 s< reg2) goto <movend>;
+        reg3 = 1;
+    <movend>
+}
+:cmplt reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x4d & reg3 {
+    reg3 = 0;
+    if !(reg1 s< literal) goto <movend>;
+        reg3 = 1;
+    <movend>
+}
+
+# cmpteq (F-p, 16.0A5)
+:cmpteq rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x0a5 & rf3 {
+    rf3 = 0;
+    if !(rf1 == rf2)  goto <cmpend>;
+        rf3 = 0x4000000000000000;
+    <cmpend>
+}
+
+# cmptle (F-p, 16.0A7)
+:cmptle rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x0a7 & rf3 {
+    rf3 = 0;
+    if !(rf1 s<= rf2)  goto <cmpend>;
+        rf3 = 0x4000000000000000;
+    <cmpend>
+}
+
+
+# cmptlt (F-p, 16.0A6)
+:cmptlt rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x0a6 & rf3 {
+    rf3 = 0;
+    if !(rf1 s< rf2)  goto <cmpend>;
+        rf3 = 0x4000000000000000;
+    <cmpend>
+}
+
+
+# cmptun (F-p, 16.0A4) TODO: Fixme, wrong comparision
+:cmptun rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x0a4 & rf3 {
+    rf3 = 0;
+    if !(rf1 != rf2)  goto <cmpend>;
+        rf3 = 0x4000000000000000;
+    <cmpend>
+}
+
+
+# cmpule (Opr, 10.3D)
+:cmpule reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x3d & reg3 {
+    reg3 = 0;
+    if !(reg1 <= reg2) goto <movend>;
+        reg3 = 1;
+    <movend>
+}
+:cmpule reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x3d & reg3 {
+    reg3 = 0;
+    if !(reg1 <= literal) goto <movend>;
+        reg3 = 1;
+    <movend>
+}
+
+# cmpult (Opr, 10.1D)
+:cmpule reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x1d & reg3 {
+    reg3 = 0;
+    if !(reg1 < reg2) goto <movend>;
+        reg3 = 1;
+    <movend>
+}
+:cmpule reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x1d & reg3 {
+    reg3 = 0;
+    if !(reg1 < literal) goto <movend>;
+        reg3 = 1;
+    <movend>
+}
+
+# cpys (F-p, 17.020)
+:cpys rf1, rf2, rf3 is opcode=0x17 & rf1 & rf2 & fp_func=0x020 & rf3 {
+}
+
+# cpyse (F-p, 17.022)
+:cpyse rf1, rf2, rf3 is opcode=0x17 & rf1 & rf2 & fp_func=0x022 & rf3 {
+}
+
+# cpysn (F-p, 17.021)
+:cpysn rf1, rf2, rf3 is opcode=0x17 & rf1 & rf2 & fp_func=0x021 & rf3 {
+}
+
+# cvtdg (F-p, 15.09E)
+:cvtdg rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x09e & rf3 {
+}
+
+# cvtgd (F-p, 15.0AD)
+:cvtgd rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x0ad & rf3 {
+}
+
+# cvtgf (F-p, 15.0AC)
+:cvtgf rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x0ac & rf3 {
+}
+
+# cvtgq (F-p, 15.0AF)
+:cvtgq rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x0af & rf3 {
+}
+
+# cvtlq (F-p, 17.010)
+:cvtql rf1, rf2, rf3 is opcode=0x17 & rf1 & rf2 & fp_func=0x010 & rf3 {
+}
+
+# cvtqf (F-p, 15.0BC)
+:cvtqf rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x0bc & rf3 {
+}
+
+# cvtqg (F-p, 15.0BE)
+:cvtqg rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x0be & rf3 {
+}
+
+# cvtql (F-p, 17.030)
+:cvtql rf1, rf2, rf3 is opcode=0x17 & rf1 & rf2 & fp_func=0x030 & rf3 {
+}
+
+# cvtql/sv (F-p, 17.530)
+:cvtql_sv rf1, rf2, rf3 is opcode=0x17 & rf1 & rf2 & fp_func=0x530 & rf3 {
+}
+
+# cvtql/v (F-p, 17.130)
+:cvtql_v rf1, rf2, rf3 is opcode=0x17 & rf1 & rf2 & fp_func=0x130 & rf3 {
+}
+
+# cvtqs (F-p, 16.0BC)
+:cvtqs rf1, rf2, rf3 is opcode=0x1 & rf1 & rf2 & fp_func=0x0bc & rf3 {
+}
+
+# cvtqt (F-p, 16.0BE)
+:cvtqt rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x0be & rf3 {
+}
+
+# cvtst (F-p, 16.2AC)
+:cvtst rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x2ac & rf3 {
+}
+
+# cvttq (F-p, 16.0AF)
+:cvttq rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x0af & rf3 {
+}
+
+# cvtts (F-p, 16.0AC)
+:cvtts rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x0ac & rf3 {
+}
+
+# divf (F-p, 15.083)
+:divf rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x083 & rf3 {
+}
+
+# divg (F-p, 15.0A3)
+:divg rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x0a3 & rf3 {
+}
+
+# divs (F-p, 16.083)
+:divs rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x083 & rf3 {
+}
+
+# divt (F-p, 16.0A3)
+:divt rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x0a3 & rf3 {
+}
+
+# eqv (Opr, 11.48)
+:eqv reg1, reg2, reg3 is opcode=0x11 & reg1 & reg2 & islit=0b0 & opr_func=0x48 & reg3 {
+    reg3 = reg1 ^ (~reg2);
+}
+:eqv reg1, literal, reg3 is opcode=0x11 & reg1 & literal & islit=0b1 & opr_func=0x48 & reg3 {
+    reg3 = reg1 ^ (~literal);
+}
+
+# excb (Mfc, 18.0400)
+
+# extbl (Opr, 12.06)
+:extbl reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x06 & reg3 {
+}
+:extbl reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x06 & reg3 {
+}
+
+# extlh (Opr, 12.6A)
+:extlh reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x6a & reg3 {
+}
+:extlh reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x6a & reg3 {
+}
+
+# extll (Opr, 12.26)
+:extll reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x26 & reg3 {
+}
+:extll reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x26 & reg3 {
+}
+
+# extqh (Opr, 12.7A)
+:extqh reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x7a & reg3 {
+}
+:extqh reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x7a & reg3 {
+}
+
+# extql (Opr, 12.36)
+:extql reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x36 & reg3 {
+}
+:extql reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x36 & reg3 {
+}
+
+# extwh (Opr, 12.54)
+:ext reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x54 & reg3 {
+}
+:ext reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x54 & reg3 {
+}
+
+# extwl (Opr, 12.16)
+:extwl reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x16 & reg3 {
+}
+:extwl reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x16 & reg3 {
+}
+
+# fbeq (Bra, 31)
+# fbge (Bra, 36)
+# fbgt (Bra, 37)
+# fble (Bra, 33)
+# fblt (Bra, 32)
+# fbne (Bra, 35)
+# fcmoveq (F-p, 17.02A)
+# fcmovge (F-p, 17.02D)
+# fcmovgt (F-p, 17.02F)
+# fcmovle (F-p, 17.02E)
+# fcmovlt (F-p, 17.02C)
+# fcmovne (F-p, 17.02B)
+# fetch (Mfc, 18.8000)
+# fetch_m (Mfc, 18.A000)
+
+# insbl (Opr, 12.0B)
+:insbl reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x0b & reg3 {
+}
+:insbl reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x0b & reg3 {
+}
+
+# mskbl (Opr, 12.02)
+:mskbl reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x02 & reg3 {
+}
+:mskbl reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x02 & reg3 {
+}
+
+# inslh (Opr, 12.67)
+:inslh reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x67 & reg3 {
+}
+:inslh reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x67 & reg3 {
+}
+
+# insll (Opr, 12.2B)
+:insll reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x2b & reg3 {
+}
+:insll reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x2b & reg3 {
+}
+
+# insqh (Opr, 12.77)
+:insqh reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x77 & reg3 {
+}
+:insqh reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x77 & reg3 {
+}
+
+# insql (Opr, 12.3B)
+:insql reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x3b & reg3 {
+}
+:insql reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x3b & reg3 {
+}
+
+# inswh (Opr, 12.57)
+:inswh reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x57 & reg3 {
+}
+:inswh reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x57 & reg3 {
+}
+
+# inswl (Opr, 12.1B)
+:inswl reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x1b & reg3 {
+}
+:inswl reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x1b & reg3 {
+}
+
+# Destination address for jump
+destj: reloc is simm16 [ reloc = inst_next + 4*(simm16 & 0x3fff); ] {
+	export *[ram]:8 reloc;
+}
+
+# jmp (Mbr, 1A.0)
+:jmp reg1, (reg2), destj is opcode=0x1a & mem_h=0 & reg1 & reg2 & destj {
+	reg1 = pc;
+	va:8 = (reg2:8 & (~3)) + destj;
+	
+	goto destj;
+}
+
+# jsr (Mbr, 1A.1)
+:jsr reg1, (reg2), destj is opcode=0x1a & mem_h=1 & reg1 & reg2 & destj {
+	reg1 = pc;
+	va:8 = (reg2:8 & (~3)) + destj;
+	*:8 sp = inst_next;
+	sp = sp-8;
+	
+	call destj;	
+}
+
+# jsr_coroutine (Mbr, 1A.3)
+:jsr_coroutine reg1, (reg2), destj is opcode=0x1a & mem_h=3 & reg1 & reg2 & destj {
+}
+
+
+# lda (Mem, 08)
+:lda reg1, simm16(reg2) is opcode=0x08 & reg1 & reg2 & simm16 {
+	reg1 = reg2 + sext(simm16:2);
+}
+
+# ldah (Mem, 09)
+:ldah reg1, simm16(reg2) is opcode=0x09 & reg1 & reg2 & simm16 {
+	reg1 = sext(simm16:2 * 65536);
+}
+
+# ldf (Mem, 20)
+:ldf reg1, simm16(reg2) is opcode=0x20 & reg1 & reg2 & simm16 {
+}
+
+# ldg (Mem, 21)
+:ldg reg1, simm16(reg2) is opcode=0x21 & reg1 & reg2 & simm16 {
+}
+
+# ldl (Mem, 28)
+:ldl reg1, simm16(reg2) is opcode=0x28 & reg1 & reg2 & simm16 {
+}
+
+# ldl_l (Mem, 2A)
+:ldl_l reg1, simm16(reg2) is opcode=0x2a & reg1 & reg2 & simm16 {
+	va:8 = reg2 + sext(simm16:2);
+	reg1 = sext(*:8 va);
+}
+
+# ldq (Mem, 29)
+:ldq reg1, simm16(reg2) is opcode=0x29 & reg1 & reg2 & simm16 {
+	va:8 = reg2 + sext(simm16:2);
+	reg1 = *va;
+}
+
+# ldq_l (Mem, 2B)
+:ldq_l reg1, simm16(reg2) is opcode=0x2b & reg1 & reg2 & simm16 {
+	va:8 = reg2 + sext(simm16:2);
+	reg1 = *va;
+}
+
+# ldq_u (Mem, 0B)
+:ldq_u reg1, simm16(reg2) is opcode=0x0b & reg1 & reg2 & simm16 {
+	va:8 = sext(simm16:2); 
+	va = va & ~7; # Clear lower three bits
+	reg1 = *va;
+}
+
+# unop (ldq_u rz, 0x00, $30)
+:unop is opcode=0x0b & reg1=31 & reg2 & simm16 {
+}
+
+# lds (Mem, 22)
+:lds reg1, simm16(reg2) is opcode=0x22 & reg1 & reg2 & simm16 {
+}
+
+# ldt (Mem, 23)
+:ldt reg1, simm16(reg2) is opcode=0x23 & reg1 & reg2 & simm16 {
+}
+
+
+# mb (Mfc, 18.4000)
+
+# mf_fpcr (F-p, 17.025)
+:mf_fpcr rf1, rf2, rf3 is opcode=0x17 & rf1 & rf2 & fp_func=0x025 & rf3 {
+}
+
+# mulf (F-p, 15.082)
+:mulf rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x082 & rf3 {
+}
+
+# mulg (F-p, 15.0A2)
+:mulg rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x0a2 & rf3 {
+}
+
+# mull (Opr, 13.00)
+# mull/v (Opr, 13.40)
+# mulq (Opr, 13.20)
+# mulq/v (Opr, 13.60)
+
+# muls (F-p, 16.082)
+:muls rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x082 & rf3 {
+}
+
+# mult (F-p, 16.0A2)
+:mult rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x0a2 & rf3 {
+}
+
+
+# ornot (Opr, 11.28)
+:ornot reg1, reg2, reg3 is opcode=0x11 & reg1 & reg2 & islit=0b0 & opr_func=0x28 & reg3 {
+	reg3 = reg1 | (~reg2);
+}
+:ornot reg1, literal, reg3 is opcode=0x11 & reg1 & literal & islit=0b1 & opr_func=0x28 & reg3 {
+	reg3 = reg1 | (~literal);
+}
+
+# rc (Mfc, 18.E000)
+
+# ret (Mbr, 1A.2)
+:ret is opcode=0x1a & mem_h=2 {
+	sp = sp+8;
+	tmp:8 = *sp;
+	return [tmp];
+}
+
+
+# rpcc (Mfc, 18.C000)
+# rs (Mfc, 18.F000)
+# s4addl (Opr, 10.02)
+:s4addl reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x02 & reg3 {
+}
+:s4addl reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x02 & reg3 {
+}
+
+# s4addq (Opr, 10.22)
+:s4addq reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x22 & reg3 {
+}
+:s4addq reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x22 & reg3 {
+}
+
+# s4subl (Opr, 10.0B)
+:s4subl reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x0b & reg3 {
+}
+:s4subl reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x0b & reg3 {
+}
+
+# s4subq (Opr, 10.2B)
+:s4subq reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x2b & reg3 {
+}
+:s4subq reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x2b & reg3 {
+}
+
+# s8addl (Opr, 10.12)
+:s8addl reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x12 & reg3 {
+}
+:s8addl reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x12 & reg3 {
+}
+
+# s8addq (Opr, 10.32)
+:s8addq reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x32 & reg3 {
+}
+:s8addq reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x32 & reg3 {
+}
+
+# s8subl (Opr, 10.1B)
+:s8subl reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x1b & reg3 {
+}
+:s8subl reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x1b & reg3 {
+}
+
+# s8subq (Opr, 10.3B)
+:s8subq reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x3b & reg3 {
+}
+:s8subq reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x3b & reg3 {
+}
+
+# sll (Opr, 12.39)
+:sll reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x39 & reg3 {
+}
+:sll reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x39 & reg3 {
+}
+
+# sra (Opr, 12.3C)
+:sra reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x3c & reg3 {
+}
+:sra reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x3c & reg3 {
+}
+
+# srl (Opr, 12.34)
+:srl reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x34 & reg3 {
+}
+:srl reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x34 & reg3 {
+}
+
+# stf (Mem, 24)
+:stf reg1, simm16(reg2) is opcode=0x24 & reg1 & reg2 & simm16 {
+}
+
+# stg (Mem, 25)
+:stg reg1, simm16(reg2) is opcode=0x25 & reg1 & reg2 & simm16 {
+}
+
+# sts (Mem, 26)
+:sts reg1, simm16(reg2) is opcode=0x26 & reg1 & reg2 & simm16 {
+}
+
+# stl (Mem, 2C)
+:stl reg1, simm16(reg2) is opcode=0x2c & reg1 & reg2 & simm16 {
+}
+
+# stl_c (Mem, 2E)
+:stl_c reg1, simm16(reg2) is opcode=0x2e & reg1 & reg2 & simm16 {
+}
+
+# stq (Mem, 2D)
+:stq reg1, simm16(reg2) is opcode=0x2d & reg1 & reg2 & simm16 {
+	va:8 = reg2 + sext(simm16:2);
+	*:8 va = reg1;
+}
+
+# stq_c (Mem, 2F)
+:stq_c reg1, simm16(reg2) is opcode=0x2f & reg1 & reg2 & simm16 {
+}
+
+# stq_u (Mem, 0F)
+:stq reg1, simm16(reg2) is opcode=0x0f & reg1 & reg2 & simm16 {
+}
+
+# stt (Mem, 27)
+:stt reg1, simm16(reg2) is opcode=0x27 & reg1 & reg2 & simm16 {
+}
+
+# subf (F-p, 15.081)
+:subf rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x081 & rf3 {
+}
+
+# subg (F-p, 15.0A1)
+:subg rf1, rf2, rf3 is opcode=0x15 & rf1 & rf2 & fp_func=0x0a1 & rf3 {
+}
+
+
+# subl (Opr, 10.09)
+:subl reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x09 & reg3 {
+}
+:subl reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x09 & reg3 {
+}
+
+# subl/v (Opr, 10.49)
+:subl_v reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x49 & reg3 {
+}
+:subl_v reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x49 & reg3 {
+}
+
+# subq (Opr, 10.29)
+:subq reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x29 & reg3 {
+	reg3 = reg1 - reg2;
+}
+:subq reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x29 & reg3 {
+	reg3 = reg1 - literal;
+}
+
+# subq/v (Opr, 10.69)
+:subq_v reg1, reg2, reg3 is opcode=0x10 & reg1 & reg2 & islit=0b0 & opr_func=0x69 & reg3 {
+}
+:subq_v reg1, literal, reg3 is opcode=0x10 & reg1 & literal & islit=0b1 & opr_func=0x69 & reg3 {
+}
+
+
+# subs (F-p, 16.081)
+:subs rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x081 & rf3 {
+}
+
+# subt (F-p, 16.0A1)
+:subt rf1, rf2, rf3 is opcode=0x16 & rf1 & rf2 & fp_func=0x0a1 & rf3 {
+}
+
+# trapb (Mfc, 18.000)
+
+# umulh (Opr, 13.30)
+:umulh reg1, reg2, reg3 is opcode=0x13 & reg1 & reg2 & islit=0b0 & opr_func=0x30 & reg3 {
+}
+:umulh reg1, literal, reg3 is opcode=0x13 & reg1 & literal & islit=0b1 & opr_func=0x30 & reg3 {
+}
+
+# wmb (Mfc, 18.44)
+
+# xor (Opr, 11.40)
+:xor reg1, reg2, reg3 is opcode=0x11 & reg1 & reg2 & islit=0b0 & opr_func=0x40 & reg3 {
+	reg3 = reg1 ^ reg2;
+}
+:xor reg1, literal, reg3 is opcode=0x11 & reg1 & literal & islit=0b1 & opr_func=0x40 & reg3 {
+	reg3 = reg1 ^ literal;
+}
+
+# zap (Opr, 12.30)
+:zap reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x30 & reg3 {
+}
+:zap reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x30 & reg3 {
+}
+
+# zapnot (Opr, 12.31)
+:zapnot reg1, reg2, reg3 is opcode=0x12 & reg1 & reg2 & islit=0b0 & opr_func=0x31 & reg3 {
+}
+:zapnot reg1, literal, reg3 is opcode=0x12 & reg1 & literal & islit=0b1 & opr_func=0x31 & reg3 {
+}
+
+
+# trapb (Mfc 18.0000) 
+# Somthing to do with pipelines we do not need to worry about
+:trapb is opcode=0x18 & mem_displ = 0x00 {
+}
+
+# amask (Opr, 11.61)
+# Rc <- Rbv AND {NOT CPU_feature_mask} EV4,EV45,LCA,LCA45 and EV5  doesn't have a feature mask??
+# so register should just be copied? 
+:amask reg1, reg2 is opcode=0x11 & reg1  & reg2 & opr_func=0x61 {
+	reg2 = reg1;
+}
+
+# bic (Opr, 11.08)
+:bic reg1, reg2, reg3 is opcode=0x11 & reg1 & reg2 & reg3 & islit=0b0 & opr_func=0x8 {
+    reg3 = reg1 & (~reg2);   
+}
+
+:bic reg1, literal, reg3 is opcode=0x11 & reg1 & literal & reg3 & islit=0b1 & opr_func=0x8 {
+    reg3 = reg1 & (~literal);   
+}
+
+
+:ldbu reg1, simm16(reg2) is opcode=0x0a & reg1 & reg2 & simm16 {
+	va:8 = reg2 + sext(simm16:2);
+	value:8 = *va;
+	reg1 = value & 0xff;
+}
